@@ -1,6 +1,6 @@
 import pandas as pd
 
-# Estrategia de reventa (puedes importar esto si lo tienes definido en otro lado)
+# Estrategia de reventa
 ESTRATEGIA = {
     "iPhone 11": 200,
     "Galaxy S8": 110,
@@ -10,13 +10,18 @@ ESTRATEGIA = {
     "PS3 Slim": 67
 }
 
-# Palabras clave para filtrar artículos no deseados
+# Palabras clave para filtrar accesorios, fundas, piezas y cosas irrelevantes
 PALABRAS_ACCESORIOS = [
     "funda", "cover", "cubierta", "protector", "estuche",
     "carcasa", "case", "batería", "soporte", "pen",
-    "stylus", "cable", "cargador"
+    "stylus", "cable", "cargador", "coque", "vidrio templado",
+    "pantalla", "alimentador", "fuente", "reproductor", "caja",
+    "box", "vacía", "teclado", "placa base", "support",
+    "ps2", "ps5", "docomo", "auriculares", "slim rgb",
+    "final fantasy", "nintendo ds", "ds lite", "3ds"
 ]
 
+# Palabras que indican posibles problemas o riesgos
 PALABRAS_RIESGO = [
     "roto", "leer", "no funciona", "pantalla rota",
     "defectuoso", "averiado", "no carga", "problema"
@@ -40,12 +45,12 @@ def analizar_ofertas(path_csv="resultados_wallapop.csv", umbral_descuento=20.0):
     # Calcular descuento en porcentaje
     df["Diferencia (%)"] = (1 - df["Precio limpio"] / df["Precio objetivo"]) * 100
 
-    # Filtrar accesorios/partes
+    # Filtrar por palabras no deseadas
     mask_dispositivo = ~df["Título"].str.lower().str.contains(
         "|".join(PALABRAS_ACCESORIOS), na=False
     )
 
-    # Filtrar solo dispositivos con descuento relevante
+    # Filtrar por umbral
     df_filtrado = df[mask_dispositivo & (df["Diferencia (%)"] > umbral_descuento)].copy()
 
     # Marcar riesgo
