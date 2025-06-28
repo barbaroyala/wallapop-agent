@@ -10,21 +10,26 @@ ESTRATEGIA = {
     "PS3 Slim": 67
 }
 
-# Palabras clave para filtrar accesorios, fundas, piezas y cosas irrelevantes
+# Palabras clave para filtrar accesorios, partes, versiones incorrectas y juegos
 PALABRAS_ACCESORIOS = [
-    "funda", "cover", "cubierta", "protector", "estuche",
-    "carcasa", "case", "batería", "soporte", "pen",
-    "stylus", "cable", "cargador", "coque", "vidrio templado",
-    "pantalla", "alimentador", "fuente", "reproductor", "caja",
-    "box", "vacía", "teclado", "placa base", "support",
-    "ps2", "ps5", "docomo", "auriculares", "slim rgb",
-    "final fantasy", "nintendo ds", "ds lite", "3ds"
+    "funda", "cover", "cubierta", "protector", "estuche", "carcasa", "case",
+    "batería", "soporte", "pen", "stylus", "cable", "cargador", "coque",
+    "vidrio templado", "pantalla", "alimentador", "fuente", "reproductor",
+    "caja", "box", "vacía", "teclado", "placa base", "support", "blu-ray",
+    "conector", "custodia", "auriculares",
+    "ps2", "ps4", "ps5", "s8 plus", "s9", "s4", "docomo",
+    "final fantasy", "nintendo ds", "ds lite", "3ds",
+    "layton", "basketball", "fifa", "lotería", "mario",
+    "tab lenovo", "tablet lenovo", "tableta lenovo", "tablet samsung",
+    "tablet pc", "tab s6 lite", "samsung tab", "tab m10",
+    "pro max", "pro max", "pro", "plus"
 ]
 
-# Palabras que indican posibles problemas o riesgos
+# Palabras clave que indican posible riesgo de estado defectuoso
 PALABRAS_RIESGO = [
-    "roto", "leer", "no funciona", "pantalla rota",
-    "defectuoso", "averiado", "no carga", "problema"
+    "roto", "leer", "no funciona", "pantalla rota", "defectuoso",
+    "averiado", "no carga", "problema", "sin funcionar",
+    "no enciende", "no da señales de vida"
 ]
 
 def analizar_ofertas(path_csv="resultados_wallapop.csv", umbral_descuento=20.0):
@@ -42,7 +47,7 @@ def analizar_ofertas(path_csv="resultados_wallapop.csv", umbral_descuento=20.0):
     df["Precio objetivo"] = df["Producto objetivo"].map(ESTRATEGIA)
     df.dropna(subset=["Precio limpio", "Precio objetivo"], inplace=True)
 
-    # Calcular descuento en porcentaje
+    # Calcular descuento
     df["Diferencia (%)"] = (1 - df["Precio limpio"] / df["Precio objetivo"]) * 100
 
     # Filtrar por palabras no deseadas
@@ -50,7 +55,7 @@ def analizar_ofertas(path_csv="resultados_wallapop.csv", umbral_descuento=20.0):
         "|".join(PALABRAS_ACCESORIOS), na=False
     )
 
-    # Filtrar por umbral
+    # Aplicar umbral de descuento y limpiar
     df_filtrado = df[mask_dispositivo & (df["Diferencia (%)"] > umbral_descuento)].copy()
 
     # Marcar riesgo
@@ -59,7 +64,7 @@ def analizar_ofertas(path_csv="resultados_wallapop.csv", umbral_descuento=20.0):
     )
     df_filtrado["Riesgo detectado"] = df_filtrado["Riesgo"].map({True: "⚠️ Sí", False: "✅ No"})
 
-    # Ordenar por mejor descuento
+    # Ordenar
     df_ordenado = df_filtrado.sort_values(by="Diferencia (%)", ascending=False)
 
     return df_ordenado
