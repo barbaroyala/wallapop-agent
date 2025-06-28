@@ -1,7 +1,6 @@
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service
-from webdriver_manager.chrome import ChromeDriverManager
 import shutil
 
 def crear_driver():
@@ -12,10 +11,9 @@ def crear_driver():
     chrome_options.add_argument("--window-size=1920,1080")
     chrome_options.add_argument("--disable-dev-shm-usage")
 
-    # Detectar ruta real de Chromium en Render
+    # Detectar Chromium en el sistema
     chrome_path = shutil.which("chromium") or shutil.which("chromium-browser")
     chrome_options.binary_location = chrome_path
 
-    # WebDriver manager instalará el ChromeDriver compatible con esa versión
-    service = Service(ChromeDriverManager().install())
-    return webdriver.Chrome(service=service, options=chrome_options)
+    # Selenium Manager se encarga del ChromeDriver
+    return webdriver.Chrome(options=chrome_options)
