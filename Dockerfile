@@ -5,16 +5,17 @@ ENV PYTHONUNBUFFERED=1 \
 
 WORKDIR /app
 
-# Instalar dependencias del sistema
+# Instalar solo Chromium y dependencias gráficas necesarias
 RUN apt-get update && apt-get install -y \
-    chromium chromium-driver \
+    chromium \
     libasound2 libatk-bridge2.0-0 libgtk-3-0 libnss3 xdg-utils \
     && rm -rf /var/lib/apt/lists/*
 
-# Copiar dependencias y código
+# Instalar dependencias de Python
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
+# Copiar el resto del código
 COPY . .
 
 EXPOSE 8501
