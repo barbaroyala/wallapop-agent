@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: wallapop-agent
+    env: docker
+    repo: https://github.com/barbaroyala/wallapop-agent
+    branch: main
+    plan: free
+    region: oregon
+    dockerfilePath: Dockerfile
+    autoDeploy: true
