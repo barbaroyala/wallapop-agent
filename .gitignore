@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+*.csv
+*.png
+*.mkv
+.DS_Store
+.env

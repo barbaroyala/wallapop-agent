@@ -1,0 +1,402 @@
+=== Contenido de '.gitignore' ===
+__pycache__/
+*.pyc
+*.csv
+*.png
+*.mkv
+.DS_Store
+.env
+
+
+=== Contenido de 'analisis_ofertas.py' ===
+import pandas as pd
+
+# Estrategia de reventa (puedes importar esto si lo tienes definido en otro lado)
+ESTRATEGIA = {
+    "iPhone 11": 200,
+    "Galaxy S8": 110,
+    "Nintendo DSi XL": 60,
+    "Galaxy Tab S6 Lite": 150,
+    "Lenovo Tab M10": 100,
+    "PS3 Slim": 67
+}
+
+# Palabras clave para filtrar artículos no deseados
+PALABRAS_ACCESORIOS = [
+    "funda", "cover", "cubierta", "protector", "estuche",
+    "carcasa", "case", "batería", "soporte", "pen",
+    "stylus", "cable", "cargador"
+]
+
+PALABRAS_RIESGO = [
+    "roto", "leer", "no funciona", "pantalla rota",
+    "defectuoso", "averiado", "no carga", "problema"
+]
+
+def analizar_ofertas(path_csv="resultados_wallapop.csv", umbral_descuento=20.0):
+    df = pd.read_csv(path_csv)
+
+    # Limpieza de precios
+    df["Precio limpio"] = (
+        df["Precio"].str.replace("€", "")
+        .str.replace(",", ".")
+        .str.strip()
+    )
+    df["Precio limpio"] = pd.to_numeric(df["Precio limpio"], errors="coerce")
+
+    # Asignar precio objetivo
+    df["Precio objetivo"] = df["Producto objetivo"].map(ESTRATEGIA)
+    df.dropna(subset=["Precio limpio", "Precio objetivo"], inplace=True)
+
+    # Calcular descuento en porcentaje
+    df["Diferencia (%)"] = (1 - df["Precio limpio"] / df["Precio objetivo"]) * 100
+
+    # Filtrar accesorios/partes
+    mask_dispositivo = ~df["Título"].str.lower().str.contains(
+        "|".join(PALABRAS_ACCESORIOS), na=False
+    )
+
+    # Filtrar solo dispositivos con descuento relevante
+    df_filtrado = df[mask_dispositivo & (df["Diferencia (%)"] > umbral_descuento)].copy()
+
+    # Marcar riesgo
+    df_filtrado["Riesgo"] = df_filtrado["Título"].str.lower().str.contains(
+        "|".join(PALABRAS_RIESGO), na=False
+    )
+    df_filtrado["Riesgo detectado"] = df_filtrado["Riesgo"].map({True: "⚠️ Sí", False: "✅ No"})
+
+    # Ordenar por mejor descuento
+    df_ordenado = df_filtrado.sort_values(by="Diferencia (%)", ascending=False)
+
+    return df_ordenado
+
+
+if __name__ == "__main__":
+    resultado = analizar_ofertas()
+    print(resultado[[
+        "Producto objetivo", "Título", "Precio limpio",
+        "Precio objetivo", "Diferencia (%)", "Riesgo detectado", "Enlace"
+    ]].head(10))
+
+
+=== Contenido de 'app.py' ===
+import streamlit as st
+import pandas as pd
+from main import ejecutar_agente
+from analisis_ofertas import analizar_ofertas
+
+st.set_page_config(page_title="Agente de Reventa Wallapop", layout="wide")
+
+st.title("🛍️ Agente de Reventa para Wallapop")
+st.markdown("Este agente busca productos, los analiza según tu estrategia y te muestra las mejores oportunidades de reventa.")
+
+# Botón para lanzar el scraping y análisis
+if st.button("🔍 Ejecutar agente de búsqueda y análisis"):
+    with st.spinner("Ejecutando scraping, extracción y análisis..."):
+        ejecutar_agente()
+
+    st.success("✅ Proceso completado.")
+    
+    # Cargar resultados
+    try:
+        df = pd.read_csv("ofertas_filtradas.csv")
+        top5 = df.sort_values(by="Diferencia (%)", ascending=False).head(5)
+
+        st.subheader("🔝 Top 5 Mejores Ofertas")
+        st.dataframe(top5[[
+            "Producto objetivo", "Título", "Precio limpio",
+            "Precio objetivo", "Diferencia (%)", "Riesgo detectado", "Enlace"
+        ]])
+
+        # Botón de descarga Top 5
+        csv_top5 = top5.to_csv(index=False, encoding='utf-8-sig').encode('utf-8-sig')
+        st.download_button("⬇️ Descargar Top 5 en CSV", data=csv_top5, file_name="top5_ofertas.csv", mime="text/csv")
+
+        st.subheader("📦 Todas las ofertas filtradas")
+        st.dataframe(df)
+
+        # Botón de descarga completa
+        csv_full = df.to_csv(index=False, encoding='utf-8-sig').encode('utf-8-sig')
+        st.download_button("⬇️ Descargar todas las ofertas", data=csv_full, file_name="ofertas_filtradas.csv", mime="text/csv")
+
+    except FileNotFoundError:
+        st.warning("⚠️ No se encontraron resultados. Ejecuta el agente primero.")
+
+else:
+    st.info("Haz clic en el botón para comenzar la búsqueda y análisis.")
+    
+#streamlit run app.py
+
+
+=== Contenido de 'Busqueda_de_Productos.py' ===
+# Busqueda_de_Productos.py
+
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+from Chrome_Driver import crear_driver  # 👈 usa el headless aquí
+import time
+
+def buscar_productos(producto: str):
+    driver = crear_driver()  # 👈 ahora se usará headless automáticamente
+    driver.get("https://es.wallapop.com/")
+
+    # Aceptar cookies
+    try:
+        WebDriverWait(driver, 10).until(
+            EC.element_to_be_clickable((By.XPATH, '//button[contains(text(), "Aceptar todo")]'))
+        ).click()
+        print("✅ Consentimiento de cookies aceptado.")
+    except:
+        print("ℹ️ No se mostraron cookies.")
+
+    # Buscar input y enviar término
+    try:
+        input_box = WebDriverWait(driver, 10).until(
+            EC.presence_of_element_located((By.ID, "searchbox-form-input"))
+        )
+        input_box.clear()
+        input_box.send_keys(producto)
+        input_box.submit()
+        print("✅ Búsqueda enviada")
+    except Exception as e:
+        print("❌ Error al buscar:", e)
+        driver.quit()
+        return None
+
+    try:
+        WebDriverWait(driver, 30).until(
+            EC.presence_of_element_located((By.CSS_SELECTOR, 'a[href^="/item/"]'))
+        )
+    except:
+        print("❌ Timeout esperando visibilidad de productos.")
+
+    time.sleep(1)
+    return driver
+
+
+=== Contenido de 'Chrome_Driver.py' ===
+from selenium import webdriver
+from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.chrome.service import Service
+from webdriver_manager.chrome import ChromeDriverManager
+
+def crear_driver():
+    chrome_options = Options()
+    chrome_options.add_argument("--headless")  # Ejecutar sin GUI
+    chrome_options.add_argument("--disable-gpu")
+    chrome_options.add_argument("--no-sandbox")
+    chrome_options.add_argument("--window-size=1920,1080")
+    chrome_options.add_argument("--disable-dev-shm-usage")
+    chrome_options.add_experimental_option('excludeSwitches', ['enable-logging'])
+
+    service = Service(ChromeDriverManager().install())  # ✅ usa Service
+    return webdriver.Chrome(service=service, options=chrome_options)  # ✅ usa keywords
+
+
+=== Contenido de 'Eficiencia_del_Scraping.py' ===
+import time
+
+TIMER = {}
+
+def iniciar_temporizador(etapa):
+    TIMER[etapa] = time.time()
+
+def terminar_temporizador(etapa):
+    if etapa in TIMER:
+        duracion = time.time() - TIMER[etapa]
+        print(f"⏱️ Duración de '{etapa}': {duracion:.2f} segundos")
+        return duracion
+    else:
+        print(f"⚠️ Etapa '{etapa}' no fue iniciada.")
+        return None
+
+
+=== Contenido de 'Extraccion_de_Datos.py' ===
+from bs4 import BeautifulSoup
+import pandas as pd
+
+def extraer_datos(driver, producto_objetivo):
+    print("📥 Extrayendo HTML con BeautifulSoup...")
+
+    html = driver.page_source
+    soup = BeautifulSoup(html, "html.parser")
+    tarjetas = soup.select('a[href^="/item/"]')
+
+    if not tarjetas:
+        print("⚠️ BeautifulSoup no encontró productos.")
+        with open(f"html_debug_{producto_objetivo.replace(' ', '_')}.html", "w", encoding="utf-8") as f:
+            f.write(html)
+        return pd.DataFrame()
+
+    datos = []
+    for a in tarjetas:
+        try:
+            img_tag = a.find("img")
+            titulo = img_tag.get("alt", "").strip() if img_tag else "Sin título"
+            imagen = img_tag.get("src") if img_tag else ""
+
+            enlace = a.get("href")
+            if enlace and not enlace.startswith("http"):
+                enlace = "https://es.wallapop.com" + enlace
+
+            precio_tag = a.find("strong", {"aria-label": "Item price"})
+            precio = (
+                precio_tag.text.strip().replace("\xa0€", " €").replace("&nbsp;€", " €")
+                if precio_tag else "N/A"
+            )
+
+            datos.append({
+                "Producto objetivo": producto_objetivo,
+                "Título": titulo,
+                "Precio": precio,
+                "Enlace": enlace,
+                "Imagen": imagen
+            })
+        except Exception as e:
+            print("⚠️ Error en producto:", e)
+            continue
+
+    df = pd.DataFrame(datos)
+    print(f"✅ Productos extraídos: {len(df)}")
+    return df
+
+
+=== Contenido de 'guardar_resultados.py' ===
+from bs4 import BeautifulSoup
+import pandas as pd
+
+def extraer_datos(driver, producto_objetivo):
+    print("📥 Extrayendo HTML con BeautifulSoup...")
+
+    html = driver.page_source
+    soup = BeautifulSoup(html, "html.parser")
+    tarjetas = soup.select('a[href^="/item/"]')
+
+    if not tarjetas:
+        print("⚠️ BeautifulSoup no encontró productos.")
+        with open(f"html_debug_{producto_objetivo.replace(' ', '_')}.html", "w", encoding="utf-8") as f:
+            f.write(html)
+        return pd.DataFrame()
+
+    datos = []
+    for a in tarjetas:
+        try:
+            img_tag = a.find("img")
+            titulo = img_tag.get("alt", "").strip() if img_tag else "Sin título"
+            imagen = img_tag.get("src") if img_tag else ""
+
+            enlace = a.get("href")
+            if enlace and not enlace.startswith("http"):
+                enlace = "https://es.wallapop.com" + enlace
+
+            precio_tag = a.find("strong", {"aria-label": "Item price"})
+            precio = precio_tag.text.strip().replace('\xa0€', ' €') if precio_tag else "N/A"
+
+            datos.append({
+                "Producto objetivo": producto_objetivo,
+                "Título": titulo,
+                "Precio": precio,
+                "Enlace": enlace,
+                "Imagen": imagen
+            })
+        except Exception as e:
+            print("⚠️ Error en producto:", e)
+            continue
+
+    df = pd.DataFrame(datos)
+    print(f"✅ Productos extraídos: {len(df)}")
+    return df
+
+
+=== Contenido de 'main.py' ===
+from Busqueda_de_Productos import buscar_productos
+from Extraccion_de_Datos import extraer_datos
+from Eficiencia_del_Scraping import iniciar_temporizador, terminar_temporizador
+from analisis_ofertas import analizar_ofertas
+import pandas as pd
+
+# 🧭 Tu estrategia de productos
+productos_objetivo = [
+    "iPhone 11",
+    "Galaxy S8",
+    "Nintendo DSi XL",
+    "Galaxy Tab S6 Lite",
+    "Lenovo Tab M10",
+    "PS3 Slim"
+]
+
+def ejecutar_agente():
+    todos_los_datos = []
+
+    iniciar_temporizador("total")
+
+    for producto in productos_objetivo:
+        print(f"\n🔍 Buscando: {producto}")
+        iniciar_temporizador(f"búsqueda {producto}")
+        driver = buscar_productos(producto)
+        terminar_temporizador(f"búsqueda {producto}")
+
+        if driver:
+            datos = extraer_datos(driver, producto)
+            todos_los_datos.append(datos)
+            driver.quit()
+        else:
+            print(f"❌ No se pudo procesar: {producto}")
+
+    if todos_los_datos:
+        df_final = pd.concat(todos_los_datos, ignore_index=True)
+        df_final.to_csv("resultados_wallapop.csv", index=False, encoding="utf-8-sig")
+        print(f"\n✅ Archivo final guardado: resultados_wallapop.csv")
+        print(f"🛍️ Total productos recopilados: {len(df_final)}")
+
+        # 🧠 Ejecutar análisis final
+        ejecutar_analisis_final()
+    else:
+        print("⚠️ No se obtuvieron resultados.")
+
+    terminar_temporizador("total")
+
+def ejecutar_analisis_final():
+    tabla_final = analizar_ofertas()
+    tabla_final.to_csv("ofertas_filtradas.csv", index=False, encoding="utf-8-sig")
+    print("✅ Análisis final guardado en 'ofertas_filtradas.csv'")
+    print(f"📉 Total de ofertas detectadas: {len(tabla_final)}")
+
+    # 🔝 Top 5 mejores ofertas
+    top5 = tabla_final.sort_values(by="Diferencia (%)", ascending=False).head(5)
+    columnas = [
+        "Producto objetivo", "Título", "Precio limpio",
+        "Precio objetivo", "Diferencia (%)", "Riesgo detectado", "Enlace"
+    ]
+    print("\n🔝 Top 5 ofertas encontradas:")
+    print(top5[columnas].to_string(index=False))
+
+    top5[columnas].to_csv("top5_ofertas.csv", index=False, encoding="utf-8-sig")
+    print("✅ Top 5 guardado en 'top5_ofertas.csv'")
+
+if __name__ == "__main__":
+    ejecutar_agente()
+
+
+=== Contenido de 'packages.txt' ===
+chromium-chromedriver
+chromium
+
+
+=== Contenido de 'Procfile' ===
+web: streamlit run app.py --server.port $PORT --server.enableCORS false
+
+
+=== Archivo 'render.yaml' no encontrado ===
+
+=== Contenido de 'requirements.txt' ===
+selenium
+webdriver-manager
+beautifulsoup4
+pandas
+streamlit
+
+#pip install -r requirements.txt
+
+
