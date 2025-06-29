@@ -22,10 +22,10 @@ PALABRAS_ACCESORIOS = [
     "layton", "basketball", "fifa", "lotería", "mario",
     "tab lenovo", "tablet lenovo", "tableta lenovo", "tablet samsung",
     "tablet pc", "tab s6 lite", "samsung tab", "tab m10",
-    "pro max", "pro max", "pro", "plus"
+    "pro max", "pro", "plus"
 ]
 
-# Palabras clave que indican posible riesgo de estado defectuoso
+# Palabras clave que indican posible riesgo
 PALABRAS_RIESGO = [
     "roto", "leer", "no funciona", "pantalla rota", "defectuoso",
     "averiado", "no carga", "problema", "sin funcionar",
@@ -50,13 +50,18 @@ def analizar_ofertas(path_csv="resultados_wallapop.csv", umbral_descuento=20.0):
     # Calcular descuento
     df["Diferencia (%)"] = (1 - df["Precio limpio"] / df["Precio objetivo"]) * 100
 
-    # Filtrar por palabras no deseadas
+    # Filtro por contenido no deseado
     mask_dispositivo = ~df["Título"].str.lower().str.contains(
         "|".join(PALABRAS_ACCESORIOS), na=False
     )
 
-    # Aplicar umbral de descuento y limpiar
+    # Filtrar por descuento y título válido
     df_filtrado = df[mask_dispositivo & (df["Diferencia (%)"] > umbral_descuento)].copy()
+
+    # Requiere que el nombre del producto objetivo esté en el título
+    df_filtrado = df_filtrado[
+        df_filtrado.apply(lambda row: row["Producto objetivo"].lower() in row["Título"].lower(), axis=1)
+    ]
 
     # Marcar riesgo
     df_filtrado["Riesgo"] = df_filtrado["Título"].str.lower().str.contains(
@@ -64,11 +69,13 @@ def analizar_ofertas(path_csv="resultados_wallapop.csv", umbral_descuento=20.0):
     )
     df_filtrado["Riesgo detectado"] = df_filtrado["Riesgo"].map({True: "⚠️ Sí", False: "✅ No"})
 
+    # Eliminar duplicados exactos por Título + Precio
+    df_filtrado.drop_duplicates(subset=["Título", "Precio limpio"], inplace=True)
+
     # Ordenar
     df_ordenado = df_filtrado.sort_values(by="Diferencia (%)", ascending=False)
 
     return df_ordenado
-
 
 if __name__ == "__main__":
     resultado = analizar_ofertas()
