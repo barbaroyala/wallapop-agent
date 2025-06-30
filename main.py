@@ -16,6 +16,15 @@ def ejecutar_agente(productos_personalizados=None):
         print(f"\n🔍 Buscando: {producto}")
         t0 = time.time()
         df = buscar_productos(producto)
+
+        if isinstance(df, pd.DataFrame):
+            print(f"📦 {len(df)} productos detectados para: {producto}")
+            if not df.empty:
+                dfs.append(df)
+            else:
+                print(f"⚠️ Producto sin resultados: {producto}")
+        else:
+            print(f"❌ Error al obtener datos para: {producto}")
         t1 = time.time()
 
         print(f"📦 {len(df)} productos detectados para: {producto}")
