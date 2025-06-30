@@ -9,29 +9,22 @@ st.set_page_config(page_title="Agente de Reventa Wallapop", layout="wide")
 st.title("🛍️ Agente de Reventa para Wallapop")
 st.markdown("Este agente busca productos, los analiza según tu estrategia y te muestra las mejores oportunidades de reventa.")
 
-# Campo de producto
-producto_input = st.text_input("🔎 Producto a buscar (ej: iPhone 11)", "")
-
 # Mostrar últimos resultados si existen
 if os.path.exists("ofertas_filtradas.csv"):
     df = pd.read_csv("ofertas_filtradas.csv")
 
-    # Fecha de última búsqueda
+    # Fecha de última modificación
     timestamp = os.path.getmtime("ofertas_filtradas.csv")
     fecha_formateada = datetime.fromtimestamp(timestamp).strftime("%Y-%m-%d %H:%M:%S")
     st.subheader(f"📦 Últimos resultados disponibles (generados el {fecha_formateada})")
 
-    # Botón de búsqueda arriba
+    # Botón arriba
     if st.button("🔁 Ejecutar nueva búsqueda y análisis"):
-        if producto_input.strip():
-            productos = [producto_input.strip()]
-            with st.spinner("⏳ Ejecutando scraping, extracción y análisis..."):
-                ejecutar_agente(productos)
-            st.success("✅ Proceso completado. Recarga la página para ver los nuevos resultados.")
-        else:
-            st.warning("⚠️ Por favor, ingresa un producto antes de buscar.")
+        with st.spinner("⏳ Ejecutando scraping, extracción y análisis..."):
+            ejecutar_agente()
+        st.success("✅ Proceso completado. Recarga la página para ver los nuevos resultados.")
 
-    # Mostrar resultados actuales
+    # Mostrar resultados
     columnas = [
         "Producto objetivo", "Título", "Precio limpio",
         "Precio objetivo", "Diferencia (%)", "Riesgo detectado", "Enlace"
@@ -53,10 +46,6 @@ if os.path.exists("ofertas_filtradas.csv"):
 else:
     st.info("🔍 Aún no se ha generado ningún resultado.")
     if st.button("🔁 Ejecutar nueva búsqueda y análisis"):
-        if producto_input.strip():
-            productos = [producto_input.strip()]
-            with st.spinner("⏳ Ejecutando scraping, extracción y análisis..."):
-                ejecutar_agente(productos)
-            st.success("✅ Proceso completado. Recarga la página para ver los nuevos resultados.")
-        else:
-            st.warning("⚠️ Por favor, ingresa un producto antes de buscar.")
+        with st.spinner("⏳ Ejecutando scraping, extracción y análisis..."):
+            ejecutar_agente()
+        st.success("✅ Proceso completado. Recarga la página para ver los nuevos resultados.")

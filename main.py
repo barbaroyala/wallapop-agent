@@ -1,16 +1,20 @@
 import pandas as pd
 import time
 from Busqueda_de_Productos import buscar_productos
-from analisis_ofertas import PALABRAS_RIESGO
+from analisis_ofertas import analizar_ofertas
 
-def ejecutar_agente(productos_personalizados=None):
+# Productos definidos en la estrategia
+productos = [
+    "iPhone 11",
+    "Galaxy S8",
+    "Nintendo DSi XL",
+    "Galaxy Tab S6 Lite",
+    "Lenovo Tab M10",
+    "PS3 Slim"
+]
+
+def ejecutar_agente():
     dfs = []
-
-    if productos_personalizados:
-        productos = productos_personalizados
-    else:
-        print("⚠️ No se ingresó ningún producto.")
-        return
 
     for producto in productos:
         print(f"\n🔍 Buscando: {producto}")
@@ -18,15 +22,11 @@ def ejecutar_agente(productos_personalizados=None):
         df = buscar_productos(producto)
         t1 = time.time()
 
-        # Validar que sea un DataFrame antes de usarlo
-        if isinstance(df, pd.DataFrame):
+        if not df.empty:
+            dfs.append(df)
             print(f"📦 {len(df)} productos detectados para: {producto}")
-            if not df.empty:
-                dfs.append(df)
-            else:
-                print(f"⚠️ Producto sin resultados: {producto}")
         else:
-            print(f"❌ Error: 'buscar_productos' no devolvió un DataFrame válido para: {producto}")
+            print(f"⚠️ Sin resultados para: {producto}")
 
         print(f"⏱️ Duración: {round(t1 - t0, 2)} segundos")
 
@@ -35,31 +35,11 @@ def ejecutar_agente(productos_personalizados=None):
         df_final.to_csv("resultados_wallapop.csv", index=False, encoding="utf-8-sig")
         print("✅ Guardado resultados_wallapop.csv")
 
-        analizar_con_estrategia_dinamica("resultados_wallapop.csv")
+        ofertas = analizar_ofertas("resultados_wallapop.csv")
+        ofertas.to_csv("ofertas_filtradas.csv", index=False, encoding="utf-8-sig")
+        print("✅ Guardado ofertas_filtradas.csv")
     else:
         print("⚠️ No se guardó ningún resultado.")
 
-def analizar_con_estrategia_dinamica(path_csv):
-    df = pd.read_csv(path_csv)
-
-    # Precio limpio
-    df["Precio limpio"] = (
-        df["Precio"].str.replace("€", "").str.replace(",", ".").str.strip()
-    )
-    df["Precio limpio"] = pd.to_numeric(df["Precio limpio"], errors="coerce")
-
-    # Precio promedio como estrategia dinámica
-    precio_promedio = df["Precio limpio"].mean()
-    df["Precio objetivo"] = precio_promedio
-    df["Diferencia (%)"] = (1 - df["Precio limpio"] / precio_promedio) * 100
-
-    # Riesgo
-    df["Riesgo"] = df["Título"].str.lower().str.contains("|".join(PALABRAS_RIESGO), na=False)
-    df["Riesgo detectado"] = df["Riesgo"].map({True: "⚠️ Sí", False: "✅ No"})
-
-    # Guardar resultados
-    df.to_csv("ofertas_filtradas.csv", index=False, encoding="utf-8-sig")
-    print("✅ Guardado ofertas_filtradas.csv con estrategia dinámica")
-
 if __name__ == "__main__":
-    ejecutar_agente(["iPhone XR"])
+    ejecutar_agente()
