@@ -16,7 +16,9 @@ def ejecutar_agente(productos_personalizados=None):
         print(f"\n🔍 Buscando: {producto}")
         t0 = time.time()
         df = buscar_productos(producto)
+        t1 = time.time()
 
+        # Validar que sea un DataFrame antes de usarlo
         if isinstance(df, pd.DataFrame):
             print(f"📦 {len(df)} productos detectados para: {producto}")
             if not df.empty:
@@ -24,16 +26,9 @@ def ejecutar_agente(productos_personalizados=None):
             else:
                 print(f"⚠️ Producto sin resultados: {producto}")
         else:
-            print(f"❌ Error al obtener datos para: {producto}")
-        t1 = time.time()
+            print(f"❌ Error: 'buscar_productos' no devolvió un DataFrame válido para: {producto}")
 
-        print(f"📦 {len(df)} productos detectados para: {producto}")
         print(f"⏱️ Duración: {round(t1 - t0, 2)} segundos")
-
-        if not df.empty:
-            dfs.append(df)
-        else:
-            print(f"❌ No se obtuvieron datos para: {producto}")
 
     if dfs:
         df_final = pd.concat(dfs, ignore_index=True)
@@ -53,7 +48,7 @@ def analizar_con_estrategia_dinamica(path_csv):
     )
     df["Precio limpio"] = pd.to_numeric(df["Precio limpio"], errors="coerce")
 
-    # Precio objetivo dinámico
+    # Precio promedio como estrategia dinámica
     precio_promedio = df["Precio limpio"].mean()
     df["Precio objetivo"] = precio_promedio
     df["Diferencia (%)"] = (1 - df["Precio limpio"] / precio_promedio) * 100
