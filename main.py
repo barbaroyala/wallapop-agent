@@ -1,67 +1,61 @@
-from Busqueda_de_Productos import buscar_productos
-from Extraccion_de_Datos import extraer_datos
-from Eficiencia_del_Scraping import iniciar_temporizador, terminar_temporizador
-from analisis_ofertas import analizar_ofertas
 import pandas as pd
+import time
+from Busqueda_de_Productos import buscar_productos
+from analisis_ofertas import PALABRAS_RIESGO
 
-# 🧭 Tu estrategia de productos
-productos_objetivo = [
-    "iPhone 11",
-    "Galaxy S8",
-    "Nintendo DSi XL",
-    "Galaxy Tab S6 Lite",
-    "Lenovo Tab M10",
-    "PS3 Slim"
-]
+def ejecutar_agente(productos_personalizados=None):
+    dfs = []
 
-def ejecutar_agente():
-    todos_los_datos = []
-
-    iniciar_temporizador("total")
-
-    for producto in productos_objetivo:
-        print(f"\n🔍 Buscando: {producto}")
-        iniciar_temporizador(f"búsqueda {producto}")
-        driver = buscar_productos(producto)
-        terminar_temporizador(f"búsqueda {producto}")
-
-        if driver:
-            datos = extraer_datos(driver, producto)
-            todos_los_datos.append(datos)
-            driver.quit()
-        else:
-            print(f"❌ No se pudo procesar: {producto}")
-
-    if todos_los_datos:
-        df_final = pd.concat(todos_los_datos, ignore_index=True)
-        df_final.to_csv("resultados_wallapop.csv", index=False, encoding="utf-8-sig")
-        print(f"\n✅ Archivo final guardado: resultados_wallapop.csv")
-        print(f"🛍️ Total productos recopilados: {len(df_final)}")
-
-        # 🧠 Ejecutar análisis final
-        ejecutar_analisis_final()
+    if productos_personalizados:
+        productos = productos_personalizados
     else:
-        print("⚠️ No se obtuvieron resultados.")
+        print("⚠️ No se ingresó ningún producto.")
+        return
 
-    terminar_temporizador("total")
+    for producto in productos:
+        print(f"\n🔍 Buscando: {producto}")
+        t0 = time.time()
+        df = buscar_productos(producto)
+        t1 = time.time()
 
-def ejecutar_analisis_final():
-    tabla_final = analizar_ofertas()
-    tabla_final.to_csv("ofertas_filtradas.csv", index=False, encoding="utf-8-sig")
-    print("✅ Análisis final guardado en 'ofertas_filtradas.csv'")
-    print(f"📉 Total de ofertas detectadas: {len(tabla_final)}")
+        print(f"📦 {len(df)} productos detectados para: {producto}")
+        print(f"⏱️ Duración: {round(t1 - t0, 2)} segundos")
 
-    # 🔝 Top 5 mejores ofertas
-    top5 = tabla_final.sort_values(by="Diferencia (%)", ascending=False).head(5)
-    columnas = [
-        "Producto objetivo", "Título", "Precio limpio",
-        "Precio objetivo", "Diferencia (%)", "Riesgo detectado", "Enlace"
-    ]
-    print("\n🔝 Top 5 ofertas encontradas:")
-    print(top5[columnas].to_string(index=False))
+        if not df.empty:
+            dfs.append(df)
+        else:
+            print(f"❌ No se obtuvieron datos para: {producto}")
 
-    top5[columnas].to_csv("top5_ofertas.csv", index=False, encoding="utf-8-sig")
-    print("✅ Top 5 guardado en 'top5_ofertas.csv'")
+    if dfs:
+        df_final = pd.concat(dfs, ignore_index=True)
+        df_final.to_csv("resultados_wallapop.csv", index=False, encoding="utf-8-sig")
+        print("✅ Guardado resultados_wallapop.csv")
+
+        analizar_con_estrategia_dinamica("resultados_wallapop.csv")
+    else:
+        print("⚠️ No se guardó ningún resultado.")
+
+def analizar_con_estrategia_dinamica(path_csv):
+    df = pd.read_csv(path_csv)
+
+    # Precio limpio
+    df["Precio limpio"] = (
+        df["Precio"].str.replace("€", "").str.replace(",", ".").str.strip()
+    )
+    df["Precio limpio"] = pd.to_numeric(df["Precio limpio"], errors="coerce")
+
+    # Precio objetivo dinámico
+    precio_promedio = df["Precio limpio"].mean()
+    df["Precio objetivo"] = precio_promedio
+    df["Diferencia (%)"] = (1 - df["Precio limpio"] / precio_promedio) * 100
+
+    # Riesgo
+    df["Riesgo"] = df["Título"].str.lower().str.contains("|".join(PALABRAS_RIESGO), na=False)
+    df["Riesgo detectado"] = df["Riesgo"].map({True: "⚠️ Sí", False: "✅ No"})
+
+    # Guardar resultados
+    df.to_csv("ofertas_filtradas.csv", index=False, encoding="utf-8-sig")
+    print("✅ Guardado ofertas_filtradas.csv con estrategia dinámica")
 
 if __name__ == "__main__":
-    ejecutar_agente()
+    ejecutar_agente(["iPhone XR"])
