@@ -3,7 +3,6 @@ import time
 from Busqueda_de_Productos import buscar_productos
 from analisis_ofertas import analizar_ofertas
 
-# Productos definidos en la estrategia
 productos = [
     "iPhone 11",
     "Galaxy S8",
@@ -19,15 +18,17 @@ def ejecutar_agente():
     for producto in productos:
         print(f"\n🔍 Buscando: {producto}")
         t0 = time.time()
-        df = buscar_productos(producto)
+        driver = buscar_productos(producto)
         t1 = time.time()
 
-        if not df.empty:
-            dfs.append(df)
-            print(f"📦 {len(df)} productos detectados para: {producto}")
+        if isinstance(driver, pd.DataFrame):
+            df = driver
         else:
-            print(f"⚠️ Sin resultados para: {producto}")
+            print(f"❌ Error al buscar: {producto}")
+            continue
 
+        print(f"📦 {len(df)} productos detectados para: {producto}")
+        dfs.append(df)
         print(f"⏱️ Duración: {round(t1 - t0, 2)} segundos")
 
     if dfs:

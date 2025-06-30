@@ -13,7 +13,7 @@ st.markdown("Este agente busca productos, los analiza según tu estrategia y te 
 if os.path.exists("ofertas_filtradas.csv"):
     df = pd.read_csv("ofertas_filtradas.csv")
 
-    # Fecha de última modificación
+    # Mostrar fecha
     timestamp = os.path.getmtime("ofertas_filtradas.csv")
     fecha_formateada = datetime.fromtimestamp(timestamp).strftime("%Y-%m-%d %H:%M:%S")
     st.subheader(f"📦 Últimos resultados disponibles (generados el {fecha_formateada})")
