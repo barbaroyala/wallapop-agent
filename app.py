@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 from main import ejecutar_agente
+from analisis_ofertas import analizar_ofertas
 import os
 from datetime import datetime
 
@@ -9,22 +10,22 @@ st.set_page_config(page_title="Agente de Reventa Wallapop", layout="wide")
 st.title("🛍️ Agente de Reventa para Wallapop")
 st.markdown("Este agente busca productos, los analiza según tu estrategia y te muestra las mejores oportunidades de reventa.")
 
-# Mostrar últimos resultados si existen
+# === Mostrar últimos resultados ===
 if os.path.exists("ofertas_filtradas.csv"):
     df = pd.read_csv("ofertas_filtradas.csv")
 
-    # Mostrar fecha
+    # Mostrar fecha de modificación
     timestamp = os.path.getmtime("ofertas_filtradas.csv")
     fecha_formateada = datetime.fromtimestamp(timestamp).strftime("%Y-%m-%d %H:%M:%S")
     st.subheader(f"📦 Últimos resultados disponibles (generados el {fecha_formateada})")
 
-    # Botón arriba
+    # Botón de nueva búsqueda justo aquí arriba
     if st.button("🔁 Ejecutar nueva búsqueda y análisis"):
         with st.spinner("⏳ Ejecutando scraping, extracción y análisis..."):
             ejecutar_agente()
         st.success("✅ Proceso completado. Recarga la página para ver los nuevos resultados.")
 
-    # Mostrar resultados
+    # Mostrar resultados actuales
     columnas = [
         "Producto objetivo", "Título", "Precio limpio",
         "Precio objetivo", "Diferencia (%)", "Riesgo detectado", "Enlace"
